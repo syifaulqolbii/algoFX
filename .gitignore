@@ -2,6 +2,9 @@ __pycache__/
 *.pyc
 python/.env
 python/data/
+python/reports/cache_*
+python/reports/decisions_*
+python/reports/llm_replay_*.json
 *.log
 *.ex5
 .freebuff/
