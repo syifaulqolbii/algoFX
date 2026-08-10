@@ -1,0 +1,17 @@
+[Unit]
+Description=Regime Bridge Watchdog
+After=regime-bridge.service
+Requires=regime-bridge.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/forex_algo/python
+EnvironmentFile=/opt/forex_algo/python/.env
+ExecStart=/opt/forex_algo/.venv/bin/python bridge_watchdog.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

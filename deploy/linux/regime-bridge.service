@@ -1,0 +1,17 @@
+[Unit]
+Description=Regime MT5 Python Bridge
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/forex_algo/python
+EnvironmentFile=/opt/forex_algo/python/.env
+ExecStart=/opt/forex_algo/.venv/bin/python server.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

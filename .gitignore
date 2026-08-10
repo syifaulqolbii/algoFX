@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+python/.env
+python/data/
+*.log
+*.ex5
+.freebuff/
+mql5/include/*.obj

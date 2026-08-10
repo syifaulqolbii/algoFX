@@ -1,0 +1,102 @@
+symbols:
+  - EURUSD
+  - GBPUSD
+  - USDJPY
+  - AUDUSD
+  - USDCAD
+
+# TF yang dikirim EA ke bridge (decision di bar terbaru timeframe pertama)
+timeframes:
+  - M5
+  - M15
+  - H1
+  - H4
+bars_per_tf: 60
+
+risk:
+  max_lot: 1.0
+  min_lot: 0.01
+  lot_step: 0.01
+  risk_per_trade_pct: 0.5        # % equity yang dipertaruhkan per posisi
+  max_open_positions: 3
+  max_total_risk_pct: 2.0        # total risk exposure (enforced di EA)
+  max_spread_pct: 0.05           # spread maksimal dalam % harga sebelum skip entry
+  vol_target:
+    enabled: false               # true = skala lot agar risk proporsional volatilitas (interaksi dgn param strategi; disetel via walk-forward)
+    target_atr_pct: 0.10         # ATR% target (skala ~ M5 EURUSD)
+    min_mult: 0.5
+    max_mult: 2.0
+  confidence_scaling:
+    enabled: false               # true = risk naik seiring confidence regime
+    base_confidence: 0.70
+    min_mult: 0.5
+    max_mult: 1.5
+
+regime:
+  atr_period: 14
+  adx_period: 14
+  vol_period: 20
+  ema_fast: 9
+  ema_slow: 21
+  rsi_period: 14
+  er_period: 20                  # Kaufman efficiency ratio
+  trend_er_min: 0.35
+  trend_adx_min: 22
+  range_er_max: 0.18
+  range_adx_max: 20
+  highvol_percentile: 0.80       # ATR% di atas persentil ini + ER rendah => CHOPPY
+
+trading:
+  min_confidence: 0.60           # confidence regime minimal utk entry
+  rr_target: 1.5                 # risk:reward untuk TP default
+  atr_sl_mult: 1.5               # SL = ATR * mult (dipakai kalau sinyal tanpa SL/TP)
+  entry_bias: "trend"            # trend | both
+
+entry:
+  type: "pullback"               # market | pullback | breakout
+  swing_n: 20                    # jumlah bar untuk level swing (breakout/pullback)
+  min_htf_agree: 2               # minimal jumlah TF besar (M15/H1/H4) searah utk OPEN
+  require_htf_alignment: false   # true = wajib HTF mayoritas searah
+  pullback_ema_dist_pct: 0.15    # close maksimal X% dari ema_slow utk kualifikasi pullback
+  breakout_lookback: 3           # bar terakhir yang harus menembus swing
+
+session:
+  enabled: false                 # true = hanya entry di jam aktif
+  server_offset_hours: 0         # offset jam server broker (GMT) bila perlu
+  entry_hours: [7, 21]           # rentang jam entry (server time, 0-23)
+  quiet_hours: null              # mis. [0, 6] = blokir entry 00:00-06:59
+
+llm:
+  # SELURUH setelan LLM di-override oleh .env (LLM_API_KEY, LLM_BASE_URL,
+  # LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS, LLM_TIMEOUT_S, LLM_JSON_MODE,
+  # LLM_RETRIES, LLM_FALLBACK_AFTER_FAILURES, LLM_MIN_CONFIDENCE).
+  # Nilai di bawah ini hanya default bila env kosong.
+  api_key_env: "LLM_API_KEY"
+  base_url_env: "LLM_BASE_URL"
+  model: "ocGO/deepseek-v4-flash"
+  temperature: 0.2
+  max_tokens: 4096
+  timeout_s: 15
+  json_mode: true
+  retries: 2
+  fallback_after_failures: 3
+  min_llm_confidence: 0.55
+
+# A/B test: hitung & log kedua engine (LLM vs deterministik) di tiap bar.
+# Aktifkan saat fase pengumpulan data signal-only (lihat reports/compare_ab.py).
+ab_test:
+  compare: true
+
+server:
+  host: "127.0.0.1"
+  port: 8080
+
+bridge:
+  require_token: false
+
+memory:
+  db_path: "data/memory.db"
+
+logging:
+  level: "INFO"
+  file: "data/bridge.log"
