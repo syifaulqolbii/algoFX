@@ -40,14 +40,14 @@ regime:
   ema_slow: 21
   rsi_period: 14
   er_period: 20                  # Kaufman efficiency ratio
-  trend_er_min: 0.35
+  trend_er_min: 0.30             # diturunkan utk A/B lebih beragam (live exploration)
   trend_adx_min: 22
   range_er_max: 0.18
   range_adx_max: 20
   highvol_percentile: 0.80       # ATR% di atas persentil ini + ER rendah => CHOPPY
 
 trading:
-  min_confidence: 0.60           # confidence regime minimal utk entry
+  min_confidence: 0.45           # confidence regime minimal utk entry (live A/B exploration)
   rr_target: 1.5                 # risk:reward untuk TP default
   atr_sl_mult: 1.5               # SL = ATR * mult (dipakai kalau sinyal tanpa SL/TP)
   entry_bias: "trend"            # trend | both

@@ -75,12 +75,12 @@ input int               InpEmaFast          = 9;
 input int               InpEmaSlow          = 21;
 input int               InpRsiPeriod        = 14;
 input int               InpErPeriod         = 20;
-input double            InpTrendErMin       = 0.35;
+input double            InpTrendErMin       = 0.30;
 input double            InpTrendAdxMin      = 22.0;
 input double            InpRangeErMax       = 0.18;
 input double            InpRangeAdxMax      = 20.0;
 input double            InpHvPercentile     = 0.80;
-input double            InpMinConfidence    = 0.60;
+input double            InpMinConfidence    = 0.45;
 input double            InpRR               = 1.5;
 input double            InpAtrSlMult        = 1.5;
 
