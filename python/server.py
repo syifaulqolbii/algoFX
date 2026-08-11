@@ -27,6 +27,7 @@ import sys
 import secrets
 import time
 import uuid
+import csv as _csv_mod
 from pathlib import Path
 
 import numpy as np
@@ -58,6 +59,60 @@ app = FastAPI(title="Regime Bridge", version="0.1.0")
 
 STATE = {"engine": "auto", "forced": False}
 FAILURES = {}
+BAR_CSV = {}   # symbol -> {"path": str, "times": set[int]} utk auto-append bar live
+
+
+def _init_bar_csv(symbol):
+    """Siapkan pelacakan CSV M5: muat waktu bar yang sudah ada."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "data", f"{symbol}_M5.csv")
+    times = set()
+    try:
+        with open(path, newline="") as f:
+            r = _csv_mod.DictReader(f)
+            for row in r:
+                times.add(int(float(row["time"])))
+    except FileNotFoundError:
+        times = set()
+    BAR_CSV[symbol] = {"path": path, "times": times}
+
+
+def _append_live_bars(symbol, bars):
+    """Append bar M5 baru dari request EA ke CSV live (dedupe by time)."""
+    entry = BAR_CSV.get(symbol)
+    if not entry or not bars.get("M5"):
+        return
+    t = bars["M5"].get("t") or []
+    o = bars["M5"].get("o") or []
+    h = bars["M5"].get("h") or []
+    l = bars["M5"].get("l") or []
+    c = bars["M5"].get("c") or []
+    v = bars["M5"].get("v") or []
+    new_rows = []
+    for i in range(len(t)):
+        bt = int(t[i])
+        if bt in entry["times"]:
+            continue
+        try:
+            new_rows.append([bt,
+                             round(float(o[i]), 5), round(float(h[i]), 5),
+                             round(float(l[i]), 5), round(float(c[i]), 5),
+                             int(v[i])])
+        except (TypeError, ValueError):
+            continue
+    if not new_rows:
+        return
+    try:
+        newfile = not os.path.exists(entry["path"])
+        with open(entry["path"], "a", newline="") as f:
+            w = _csv_mod.writer(f)
+            if newfile:
+                w.writerow(["time", "open", "high", "low", "close", "volume"])
+            for row in new_rows:
+                w.writerow(row)
+                entry["times"].add(row[0])
+    except Exception as e:
+        log.warning("append live bars %s gagal: %s", symbol, e)
 
 
 class Account(BaseModel):
@@ -234,6 +289,8 @@ def _run_decision(req):
             "llm": {k: llm_resp.get(k) for k in ("action", "bias", "confidence", "reasoning", "entry", "sl", "tp", "lot")} if llm_resp else None,
             "det": {k: det_resp.get(k) for k in ("action", "bias", "reasoning", "entry", "sl", "tp", "lot")} if det_resp else None,
         }
+    # simpan bar M5 live ke CSV utk forward-replay (always up-to-date)
+    _append_live_bars(symbol, req.bars)
     return response
 
 
@@ -510,6 +567,8 @@ def init():
     CFG = load_config()
     ensure_data_dir(CFG)
     MEM = Memory(resolve_path(CFG, "memory"))
+    for sym in CFG.get("symbols", []):
+        _init_bar_csv(sym)
     lcfg = CFG["llm"]
     if lcfg.get("ready"):
         LLM = LLMClient(lcfg)
