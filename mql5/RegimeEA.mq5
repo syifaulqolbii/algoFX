@@ -14,10 +14,10 @@
 #property version   "1.00"
 
 #include <Trade\Trade.mqh>
-#include "include\Json.mqh"
-#include "include\Features.mqh"
-#include "include\Deterministic.mqh"
-#include "include\Bridge.mqh"
+#include "Json.mqh"
+#include "Features.mqh"
+#include "Deterministic.mqh"
+#include "Bridge.mqh"
 
 input group "=== Bridge ==="
 input string            InpServerUrl        = "http://127.0.0.1:8080";   // URL bridge (whitelist di WebRequest)

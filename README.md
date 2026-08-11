@@ -15,6 +15,46 @@ Python Bridge (localhost, FastAPI)
                 -> memory.py (SQLite) -> sinyal JSON -> EA eksekusi
 ```
 
+## MT5 EA Compile Layout
+
+Letakkan `.mq5` dan folder `include/` di lokasi yang sama. MT5 mencari include relatif terhadap posisi file `.mq5`:
+
+```
+MQL5\Experts\RegimeEA\
+  ├─ RegimeEA.mq5
+  ├─ Json.mqh
+  ├─ Features.mqh
+  ├─ Deterministic.mqh
+  └─ Bridge.mqh
+```
+
+Atau, alternatif layout global:
+
+```
+MQL5\Experts\RegimeEA\RegimeEA.mq5
+MQL5\Experts\include\*.mqh
+```
+
+## Strukt## MT5 EA Compile Layoutur
+
+Letakkan `.mq5` dan folder `include/` di lokasi yang sama. MT5 mencari include relatif terhadap posisi file `.mq5`:
+
+```
+MQL5\Experts\RegimeEA\
+  ├─ RegimeEA.mq5
+  ├─ Json.mqh
+  ├─ Features.mqh
+  ├─ Deterministic.mqh
+  └─ Bridge.mqh
+```
+
+Atau, alternatif layout global:
+
+```
+MQL5\Experts\RegimeEA\RegimeEA.mq5
+MQL5\Experts\include\*.mqh
+```
+
 ## Struktur
 
 ```
@@ -37,6 +77,8 @@ forex_algo/
 │  ├─ server.py               FastAPI bridge
 │  └─ backtest/               engine offline (replay data, tanpa LLM)
 ├─ prompts/decision.md        system prompt untuk DeepSeek
+├─ deploy/
+│  └─ linux/                  Docker, systemd, Tailscale runbook
 └─ README.md
 ```
 
