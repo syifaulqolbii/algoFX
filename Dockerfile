@@ -7,5 +7,6 @@ COPY python /app/python
 COPY prompts /app/prompts
 
 WORKDIR /app/python
+ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
-CMD ["python", "server.py"]
+CMD ["python", "-u", "server.py"]
