@@ -92,7 +92,7 @@ def evaluate_engine(records, bars_index, bars, ts, tv, fwd, lot):
             stats["gl"] += -pnl
     if stats["open"] > 0:
         stats["win_rate"] = stats["win"] / stats["open"]
-        stats["pf"] = stats["gw"] / stats["gl"] if stats["gl"] > 0 else float("inf")
+        stats["pf"] = stats["gw"] / stats["gl"] if stats["gl"] > 0 else "inf"
     else:
         stats["win_rate"] = 0.0
         stats["pf"] = 0.0

@@ -48,6 +48,7 @@ from llm import LLMClient, LLMError, ValidationError
 from memory import Memory
 from mock import MockLLM
 from regime import classify, deterministic_signal, compute_lot
+from reports.compare_ab import TICKS
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -366,6 +367,122 @@ def live_report(symbol: str = "XAUUSD", last: int = 200):
             "same": agree, "total": total,
             "rate": (agree / total) if total else 0.0,
         },
+    }
+
+
+@app.get("/ab_report")
+def ab_report(symbol: str = "XAUUSD", since: int = 300, lot: float = 0.1,
+              fwd: int = 30):
+    """A/B report dengan forward-fill replay vs CSV lokal.
+
+    Mengembalikan per-engine (LLM vs deterministic): total/open/win%/net/PF
+    plus agreement dan divergent list. Memerlukan file CSV OHLC di
+    `python/data/<SYMBOL>_M5.csv` di-mount di container.
+    """
+    import csv as _csv_mod
+    csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "data", f"{symbol}_M5.csv")
+    bars = []
+    bars_index = {}
+    try:
+        with open(csv_path, newline="") as f:
+            r = _csv_mod.DictReader(f)
+            for i, row in enumerate(r):
+                bars.append({
+                    "time": int(float(row["time"])),
+                    "open": float(row["open"]), "high": float(row["high"]),
+                    "low": float(row["low"]), "close": float(row["close"]),
+                })
+                bars_index[bars[-1]["time"]] = i
+    except FileNotFoundError:
+        return {"error": f"CSV not found: {csv_path}"}
+
+    ts, tv = TICKS.get(symbol, (1e-5, 1.0))
+
+    rows = MEM.conn.execute(
+        "SELECT ts, engine, llm_decision, det_decision FROM decisions "
+        "WHERE symbol=? ORDER BY ts DESC LIMIT ?", (symbol, since)).fetchall()
+    if not rows:
+        return {"symbol": symbol, "error": "no decisions"}
+
+    per_engine = {"llm": [], "det": []}
+    for _ts, engine, llm_j, det_j in rows:
+        if llm_j:
+            per_engine["llm"].append(json.loads(llm_j))
+        if det_j:
+            per_engine["det"].append(json.loads(det_j))
+        if engine == "deterministic" and llm_j:
+            per_engine["det"].append(json.loads(llm_j))
+
+    def _eval(records):
+        s = {"total": len(records), "open": 0, "win": 0, "pnl": 0.0,
+             "gw": 0.0, "gl": 0.0}
+        for rec in records:
+            if rec.get("action") != "OPEN" or rec.get("bias") not in ("LONG", "SHORT"):
+                continue
+            idx = bars_index.get(rec.get("bar_time"))
+            if idx is None:
+                continue
+            entry, sl, tp = rec.get("entry"), rec.get("sl"), rec.get("tp")
+            if not (entry and sl and tp):
+                continue
+            side = 1 if rec["bias"] == "LONG" else -1
+            exit_price = None
+            for k in range(idx + 1, min(idx + 50, len(bars))):
+                hi, lo = bars[k]["high"], bars[k]["low"]
+                if side == 1:
+                    hs, ht = lo <= sl, hi >= tp
+                else:
+                    hs, ht = hi >= sl, lo <= tp
+                if hs and ht:
+                    exit_price = sl; break
+                if hs:
+                    exit_price = sl; break
+                if ht:
+                    exit_price = tp; break
+            if exit_price is None:
+                exit_price = bars[-1]["close"]
+            pnl = side * (exit_price - entry) / ts * tv * lot
+            s["open"] += 1
+            s["pnl"] += pnl
+            if pnl > 0:
+                s["win"] += 1
+                s["gw"] += pnl
+            else:
+                s["gl"] += -pnl
+        s["win_rate"] = s["win"] / s["open"] if s["open"] else 0.0
+        s["pf"] = s["gw"] / s["gl"] if s["gl"] > 0 else "inf"
+        return s
+
+    results = {eng: _eval(per_engine[eng]) for eng in ("llm", "det")}
+
+    agree = total = 0
+    divergent = []
+    for _ts, engine, llm_j, det_j in rows:
+        if not llm_j or not det_j:
+            continue
+        try:
+            llm_d = json.loads(llm_j); det_d = json.loads(det_j)
+        except Exception:
+            continue
+        total += 1
+        if llm_d.get("action") == det_d.get("action"):
+            agree += 1
+        else:
+            divergent.append({
+                "ts": _ts,
+                "llm_action": llm_d.get("action"), "det_action": det_d.get("action"),
+                "llm_bias": llm_d.get("bias"), "det_bias": det_d.get("bias"),
+            })
+
+    return {
+        "symbol": symbol,
+        "since": since,
+        "bars_in_csv": len(bars),
+        "results": results,
+        "agreement": {"same": agree, "total": total,
+                       "rate": (agree / total) if total else 0.0},
+        "divergent_first5": divergent[:5],
     }
 
 
