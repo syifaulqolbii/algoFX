@@ -4,6 +4,7 @@ symbols:
   - USDJPY
   - AUDUSD
   - USDCAD
+  - XAUUSD
 
 # TF yang dikirim EA ke bridge (decision di bar terbaru timeframe pertama)
 timeframes:

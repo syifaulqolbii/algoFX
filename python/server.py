@@ -79,6 +79,8 @@ def _init_bar_csv(symbol):
 
 def _append_live_bars(symbol, bars):
     """Append bar M5 baru dari request EA ke CSV live (dedupe by time)."""
+    if symbol not in BAR_CSV:
+        _init_bar_csv(symbol)
     entry = BAR_CSV.get(symbol)
     if not entry or not bars.get("M5"):
         return
