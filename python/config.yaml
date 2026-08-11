@@ -92,7 +92,7 @@ server:
   port: 8080
 
 bridge:
-  require_token: false
+  require_token: false          # production: set BRIDGE_REQUIRE_TOKEN=true di .env VPS
 
 memory:
   db_path: "data/memory.db"
