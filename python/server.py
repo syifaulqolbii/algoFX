@@ -405,17 +405,35 @@ def ab_report(symbol: str = "XAUUSD", since: int = 300, lot: float = 0.1,
     ts, tv = TICKS.get(symbol, (1e-5, 1.0))
 
     rows = MEM.conn.execute(
-        "SELECT ts, engine, llm_decision, det_decision FROM decisions "
+        "SELECT ts, engine, llm_decision, det_decision, payload FROM decisions "
         "WHERE symbol=? ORDER BY ts DESC LIMIT ?", (symbol, since)).fetchall()
     if not rows:
         return {"symbol": symbol, "error": "no decisions"}
 
+    def _load(j, payload):
+        if not j:
+            return None
+        try:
+            d = json.loads(j)
+        except Exception:
+            return None
+        # fallback bar_time dari snapshot payload (data lama tanpa bar_time)
+        if not d.get("bar_time") and payload:
+            try:
+                p = json.loads(payload)
+                d["bar_time"] = int(p.get("server_time") or 0)
+            except Exception:
+                pass
+        return d
+
     per_engine = {"llm": [], "det": []}
-    for _ts, engine, llm_j, det_j in rows:
-        if llm_j:
-            per_engine["llm"].append(json.loads(llm_j))
-        if det_j:
-            per_engine["det"].append(json.loads(det_j))
+    for _ts, engine, llm_j, det_j, payload_j in rows:
+        llm_d = _load(llm_j, payload_j)
+        det_d = _load(det_j, payload_j)
+        if llm_d:
+            per_engine["llm"].append(llm_d)
+        if det_d:
+            per_engine["det"].append(det_d)
 
     def _eval(records):
         s = {"total": len(records), "open": 0, "win": 0, "pnl": 0.0,
@@ -461,12 +479,10 @@ def ab_report(symbol: str = "XAUUSD", since: int = 300, lot: float = 0.1,
 
     agree = total = 0
     divergent = []
-    for _ts, engine, llm_j, det_j in rows:
-        if not llm_j or not det_j:
-            continue
-        try:
-            llm_d = json.loads(llm_j); det_d = json.loads(det_j)
-        except Exception:
+    for _ts, engine, llm_j, det_j, payload_j in rows:
+        llm_d = _load(llm_j, payload_j)
+        det_d = _load(det_j, payload_j)
+        if not llm_d or not det_d:
             continue
         total += 1
         if llm_d.get("action") == det_d.get("action"):

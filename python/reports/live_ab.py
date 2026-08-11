@@ -111,12 +111,26 @@ def main():
     cfg = load_config()
     mem = Memory(resolve_path(cfg, "memory"))
     rows = mem.conn.execute(
-        "SELECT ts, engine, llm_decision, det_decision FROM decisions "
+        "SELECT ts, engine, llm_decision, det_decision, payload FROM decisions "
         "WHERE symbol=? ORDER BY ts DESC LIMIT ?", (args.symbol, args.since)).fetchall()
 
     if not rows:
         print(f"Tidak ada decision untuk {args.symbol}.")
         return
+
+    def _load(j, payload):
+        if not j:
+            return None
+        try:
+            d = json.loads(j)
+        except Exception:
+            return None
+        if not d.get("bar_time") and payload:
+            try:
+                d["bar_time"] = int(json.loads(payload).get("server_time") or 0)
+            except Exception:
+                pass
+        return d
 
     csv_path = args.csv or os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -129,11 +143,13 @@ def main():
     ts, tv = TICKS.get(args.symbol, (1e-5, 1.0))
 
     per_engine = {"llm": [], "det": []}
-    for _ts, engine, llm_j, det_j in rows:
-        if llm_j:
-            per_engine["llm"].append(json.loads(llm_j))
-        if det_j:
-            per_engine["det"].append(json.loads(det_j))
+    for _ts, engine, llm_j, det_j, payload_j in rows:
+        llm_d = _load(llm_j, payload_j)
+        det_d = _load(det_j, payload_j)
+        if llm_d:
+            per_engine["llm"].append(llm_d)
+        if det_d:
+            per_engine["det"].append(det_d)
 
     if not bars:
         print(f"CSV {csv_path} tidak ada. Forward fill replay dilewati.")
