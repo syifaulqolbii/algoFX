@@ -78,3 +78,26 @@ curl http://127.0.0.1:8080/health
 ```
 
 Start with `InpSignalOnly=true`. Confirm decisions arrive for at least several bars, then switch to `false` on demo only.
+
+## Firewall (Tailscale-only)
+
+Bridge listens di `0.0.0.0:8080`. Kalau VPS punya IPv4 publik, port bisa discan. Tailscale memberi VPN tapi lapisan `ufw` ekstra membantu:
+
+```bash
+# pastikan SSH dulu (jangan lock out)
+sudo ufw allow 22/tcp
+
+# izinkan Tailscale network saja untuk port 8080
+sudo ufw allow from 100.64.0.0/10 to any port 8080 proto tcp
+
+# tolak semuanya yang lain ke port 8080
+sudo ufw deny 8080/tcp
+
+sudo ufw enable
+sudo ufw status verbose
+```
+
+Verifikasi:
+- `curl http://127.0.0.1:8080/health` dari VPS host → `200 OK`
+- `curl http://100.66.79.3:8080/health` dari Windows lewat Tailscale → `200 OK`
+- dari internet publik ke VPS IP → timeout / denied
