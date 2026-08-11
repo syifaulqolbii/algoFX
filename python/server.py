@@ -330,6 +330,45 @@ def history(symbol: str, limit: int = 50):
     return {"symbol": symbol, "decisions": MEM.recent(symbol, limit)}
 
 
+@app.get("/live_report")
+def live_report(symbol: str = "XAUUSD", last: int = 200):
+    """Ringkasan A/B live: per engine (aktif vs det), hitungan action, agreement.
+
+    'last' = jumlah baris terbaru yang dianalisis dari SQLite.
+    """
+    rows = MEM.conn.execute(
+        "SELECT ts, engine, action, bias FROM decisions "
+        "WHERE symbol=? ORDER BY ts DESC LIMIT ?", (symbol, last)).fetchall()
+    by_engine = {}
+    for _ts, engine, action, bias in rows:
+        s = by_engine.setdefault(engine, {})
+        s.setdefault(action, {})
+        s[action][bias] = s[action].get(bias, 0) + 1
+    agree = total = 0
+    paired = MEM.conn.execute(
+        "SELECT llm_decision, det_decision FROM decisions "
+        "WHERE symbol=? ORDER BY ts DESC LIMIT ?", (symbol, last)).fetchall()
+    for llm_j, det_j in paired:
+        if not llm_j or not det_j:
+            continue
+        try:
+            llm_d = json.loads(llm_j); det_d = json.loads(det_j)
+        except Exception:
+            continue
+        total += 1
+        if llm_d.get("action") == det_d.get("action"):
+            agree += 1
+    return {
+        "symbol": symbol,
+        "last": len(rows),
+        "by_engine": by_engine,
+        "agreement": {
+            "same": agree, "total": total,
+            "rate": (agree / total) if total else 0.0,
+        },
+    }
+
+
 def init():
     global CFG, MEM, LLM
     CFG = load_config()
