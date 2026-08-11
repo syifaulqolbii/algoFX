@@ -215,6 +215,11 @@ def _run_decision(req):
 
     llm_resp = _finalize(llm_dec, regime, req.account, primary, "llm") if llm_dec else None
     det_resp = _finalize(det_dec, regime, req.account, primary, "deterministic")
+    bar_time = int(req.server_time) if req.server_time else int(time.time())
+    if llm_resp is not None:
+        llm_resp["bar_time"] = bar_time
+    if det_resp is not None:
+        det_resp["bar_time"] = bar_time
     response = llm_resp if engine == "llm" else det_resp
 
     if req.log:
@@ -411,8 +416,6 @@ def ab_report(symbol: str = "XAUUSD", since: int = 300, lot: float = 0.1,
             per_engine["llm"].append(json.loads(llm_j))
         if det_j:
             per_engine["det"].append(json.loads(det_j))
-        if engine == "deterministic" and llm_j:
-            per_engine["det"].append(json.loads(llm_j))
 
     def _eval(records):
         s = {"total": len(records), "open": 0, "win": 0, "pnl": 0.0,
@@ -470,7 +473,7 @@ def ab_report(symbol: str = "XAUUSD", since: int = 300, lot: float = 0.1,
             agree += 1
         else:
             divergent.append({
-                "ts": _ts,
+                "ts": llm_d.get("bar_time") or det_d.get("bar_time") or _ts,
                 "llm_action": llm_d.get("action"), "det_action": det_d.get("action"),
                 "llm_bias": llm_d.get("bias"), "det_bias": det_d.get("bias"),
             })

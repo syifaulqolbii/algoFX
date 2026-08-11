@@ -130,12 +130,10 @@ def main():
 
     per_engine = {"llm": [], "det": []}
     for _ts, engine, llm_j, det_j in rows:
-        if engine == "llm" and llm_j:
+        if llm_j:
             per_engine["llm"].append(json.loads(llm_j))
         if det_j:
             per_engine["det"].append(json.loads(det_j))
-        if engine == "deterministic" and llm_j:
-            per_engine["det"].append(json.loads(llm_j))
 
     if not bars:
         print(f"CSV {csv_path} tidak ada. Forward fill replay dilewati.")
