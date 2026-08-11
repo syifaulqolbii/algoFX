@@ -3,6 +3,7 @@
 //| Mengirim bars OHLCV multi-TF + posisi + akun, membaca keputusan.  |
 //| CATATAN: URL http://127.0.0.1:8080 harus di-whitelist di          |
 //| MT5 -> Tools -> Options -> Expert Advisors -> Allow WebRequest.   |
+//| Path /decision ditambahkan otomatis bila belum ada.               |
 //+------------------------------------------------------------------+
 #property strict
 
@@ -96,32 +97,40 @@ public:
       return s;
    }
 
-   //--- kirim POST, parse respons. return false bila network error.
-   static bool Send(string url,string payload,int timeoutMs,BridgeDecision &dec)
-   {
-      dec.ok=false;
-      char post[],result[];
-      StringToCharArray(payload,post);
-      // buang null terminator
-      int sz=ArraySize(post);
-      if(sz>0 && post[sz-1]==0) sz--;
-      ArrayResize(post,sz);
+//--- kirim POST, parse respons. return false bila network error.
+    static bool Send(string url,string payload,int timeoutMs,BridgeDecision &dec)
+    {
+       dec.ok=false;
+       char post[],result[];
+       StringToCharArray(payload,post);
+       // buang null terminator
+       int sz=ArraySize(post);
+       if(sz>0 && post[sz-1]==0) sz--;
+       ArrayResize(post,sz);
 
-      string resultHeaders;
-      ResetLastError();
-      // overload 7-arg (tanpa headers request). FastAPI/starlette tetap parse JSON
-      // tanpa Content-Type header.
-      int res=WebRequest("POST",url,"",timeoutMs,post,result,resultHeaders);
-      if(res==-1)
-      {
-         dec.raw="WebRequest error #"+IntegerToString(GetLastError());
-         dec.reasoning=dec.raw;
-         return false;
-      }
-      dec.raw=CharArrayToString(result,0,WHOLE_ARRAY,CP_UTF8);
-      dec.ok=true;
-      return true;
-   }
+       // MT5 whitelist di host saja, path otomatis
+       if(StringFind(url,"/decision") < 0)
+       {
+          if(StringGetCharacter(url,StringLen(url)-1)=='/')
+             StringSetCharacter(url,StringLen(url)-1,0);
+          StringAdd(url,"/decision");
+       }
+
+       string resultHeaders;
+       ResetLastError();
+       // overload 7-arg (tanpa headers request). FastAPI/starlette tetap parse JSON
+       // tanpa Content-Type header.
+       int res=WebRequest("POST",url,"",timeoutMs,post,result,resultHeaders);
+       if(res==-1)
+       {
+          dec.raw="WebRequest error #"+IntegerToString(GetLastError());
+          dec.reasoning=dec.raw;
+          return false;
+       }
+       dec.raw=CharArrayToString(result,0,WHOLE_ARRAY,CP_UTF8);
+       dec.ok=true;
+       return true;
+    }
 
    //--- parse respons bridge ke BridgeDecision (harus ok==true)
    static void Parse(const string &raw,BridgeDecision &dec)
