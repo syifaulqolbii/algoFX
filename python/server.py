@@ -107,7 +107,7 @@ def _build_snapshot(req, features_by_tf, regime):
         "account": {"balance": req.account.balance, "equity": req.account.equity},
         "features": multi_tf_snapshot(features_by_tf, tf_order),
         "regime": regime.to_dict(),
-        "open_positions": [p.dict() for p in req.positions],
+        "open_positions": [p.model_dump() for p in req.positions],
         "recent": _recent_context(req.symbol),
     }
     return json.dumps(snap, ensure_ascii=False)
@@ -174,10 +174,10 @@ def _run_decision(req):
     llm_resp = det_resp = None
     decision = None
 
-    # deterministik selalu dihitung (murah) utk baseline A/B
+# deterministik selalu dihitung (murah) utk baseline A/B
     det_dec = deterministic_signal(features_by_tf, tf_order, regime,
-                                   req.account.dict(), cfg, spread,
-                                   bar_time=req.server_time or time.time())
+                                    req.account.model_dump(), cfg, spread,
+                                    bar_time=req.server_time or time.time())
 
     if want_llm:
         try:
