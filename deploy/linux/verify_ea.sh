@@ -44,10 +44,15 @@ else:
 echo
 
 echo "=== 5. Token test (auth) ==="
-TOKEN="$(grep '^BRIDGE_TOKEN=' python/.env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r\n ' || true)"
+TOKEN="$(grep -E '^\s*#?\s*BRIDGE_TOKEN=' python/.env 2>/dev/null | head -1 | sed -E 's/^\s*#?\s*BRIDGE_TOKEN=//' | tr -d '\r\n ' || true)"
 if [ -z "$TOKEN" ]; then
   echo "INFO: BRIDGE_TOKEN tidak ditemukan di python/.env. Skip test token."
-  echo "      Pastikan BRIDGE_TOKEN di .env sama dengan InpBridgeToken di EA."
+  echo "      Tambahkan di python/.env: BRIDGE_TOKEN=\$(bash deploy/linux/gen_token.sh)"
+  exit 0
+fi
+if grep -qE '^\s*#\s*BRIDGE_TOKEN=' python/.env 2>/dev/null; then
+  echo "INFO: BRIDGE_TOKEN ada tapi di-comment (#). Token test dilewati."
+  echo "      Hapus karakter '# ' di depan baris BRIDGE_TOKEN=... di python/.env untuk mengaktifkan."
   exit 0
 fi
 echo "token loaded (len=${#TOKEN})"
