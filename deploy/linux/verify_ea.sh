@@ -14,11 +14,11 @@ curl -fsS "http://127.0.0.1:8080/health" || { echo "bridge DOWN"; exit 1; }
 echo
 echo
 
-echo "=== 3. Bridge log (tail 30, sinyal LLM & error) ==="
-docker compose logs --tail=30 bridge | grep -E "LLM|httpx|decision|ERROR|bridge" || echo "(tidak ada)"
+echo "=== 3. Bridge log (tail 40, sinyal LLM & error) ==="
+docker compose logs --tail=40 bridge | grep -E "POST /decision|LLM|httpx|ERROR|bridge" || echo "(tidak ada)"
 echo
 
-echo "=== 4. Request count via SQLite (5 menit terakhir) ==="
+echo "=== 4. Request count via SQLite ==="
 docker exec algofx-bridge-1 python -c "
 from memory import Memory
 from config import load_config, resolve_path
@@ -34,16 +34,29 @@ if total:
     print('last 3:')
     for r in last:
         print(' ', r)
+else:
+    print('BELUM ADA request EA tersimpan. Cek:')
+    print('  - MT5: Allow WebRequest = http://100.66.79.3')
+    print('  - MT5: EA InpServerUrl=http://100.66.79.3:8080')
+    print('  - MT5: EA InpEnableLLM=true, AutoTrading ON')
+    print('  - MT5: tab Experts -> log "WebRequest" error')
 "
 echo
 
 echo "=== 5. Token test (auth) ==="
-TOKEN="${BRIDGE_TOKEN:-$(grep '^BRIDGE_TOKEN=' python/.env 2>/dev/null | cut -d= -f2)}"
+TOKEN="$(grep '^BRIDGE_TOKEN=' python/.env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r\n ')"
 if [ -z "$TOKEN" ]; then
-  echo "BRIDGE_TOKEN tidak ditemukan di .env"
+  echo "BRIDGE_TOKEN tidak ditemukan di .env. Tambahkan di python/.env."
   exit 1
 fi
+echo "token loaded (len=${#TOKEN})"
 PAYLOAD='{"symbol":"XAUUSD","timeframe":"M5","bars":{"M5":{"t":[0],"o":[0],"h":[0],"l":[0],"c":[0],"v":[0]}},"positions":[],"account":{"balance":10000,"equity":10000,"tick_size":0.01,"tick_value":1.0,"spread":0.3},"server_time":1700000000,"log":false,"bridge_token":"'"$TOKEN"'"}'
 RESP=$(curl -s -X POST "http://127.0.0.1:8080/decision" -H "Content-Type: application/json" -d "$PAYLOAD")
-echo "$RESP" | python -m json.tool | head -8
-echo "$RESP" | grep -q '"engine":"llm"' && echo "OK: token valid, LLM aktif" || echo "GAGAL: periksa token"
+echo "$RESP" | python -m json.tool 2>/dev/null | head -10 || echo "$RESP"
+if echo "$RESP" | grep -q '"engine":"auth_error"'; then
+  echo "GAGAL: token ditolak. Periksa BRIDGE_TOKEN di .env sama dengan InpBridgeToken di EA."
+elif echo "$RESP" | grep -q '"engine":"llm"'; then
+  echo "OK: token valid, LLM aktif"
+else
+  echo "INFO: token valid, response di atas"
+fi
